@@ -1,0 +1,46 @@
+{
+  "name": "wapfd-builder",
+  "description": "design for sina wap fd auto build",
+  "version": "0.1.0",
+  "homepage": "",
+  "author": "yfhe",
+  "repository": {
+    "type": "git",
+    "url": "yfhe@52.68.33.197:/home/yfhe/gitHub/.git"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "/blob/master/LICENSE-MIT"
+    }
+  ],
+  "engines": {
+    "node": ">= 0.8.0"
+  },
+  "scripts": {
+    "wapfd-builder": "design for sina wap fd auto build"
+  },
+  "devDependencies": {
+    "ftp": "*",
+    "uglify-js": "*",
+    "clean-css": "*",
+    "grunt": "~0.4.5"
+  },
+  "peerDependencies": {
+    "grunt": "~0.4.5"
+  },
+  "keywords": [
+    "gruntplugin"
+  ],
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "clean-css": "^3.3.9",
+    "crypto": "0.0.3",
+    "ftp": "^0.3.10",
+    "uglify-js": "^2.4.24"
+  }
+}
