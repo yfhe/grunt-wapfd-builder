@@ -126,6 +126,7 @@ module.exports = function(grunt) {
     var cmd = grunt.option('cmd') || 'init';
     var cnfname = grunt.option('cnf') || 'wapBuildCnf.js';
     forceRefresh = grunt.option('force') || false;
+    console.log(grunt.option('submit'));
     grunt.log.writeln('build start');
     if(cmd === 'init'){
         grunt.log.writeln('cmd:'+cmd);
@@ -162,7 +163,7 @@ module.exports = function(grunt) {
             cnf.minifyType = cnf.minifyType || ['js', 'css'];
 
 
-            fdCnfPath = path.join(cnf.projectRoot, 'js', 'config.js');
+            fdCnfPath = path.join(cnf.projectRoot, 'js', grunt.option('fdCnf') || 'config.js');
             if(fs.existsSync(fdCnfPath)){
                 fdCnf = require(fdCnfPath);
             }else{
@@ -190,7 +191,6 @@ module.exports = function(grunt) {
             util.writeFile(cnfPath, 'exports=module.exports='+JSON.stringify(cnf,null,2));
             util.makeProductCnf(fdCnf, fdCnfPath);
         }
-
     }
 
     if(cmd === 'build'){
@@ -199,7 +199,7 @@ module.exports = function(grunt) {
             var buildIn = {}, tmpDir;
             cnfPath = path.join(curDir, cnfname);
             cnf = require(cnfPath);
-            fdCnfPath = grunt.option('fdCnf') || path.join(cnf.projectRoot, 'js', 'config.js');
+            fdCnfPath = path.join(cnf.projectRoot, 'js', grunt.option('fdCnf') || 'config.js');
             fdCnf = require(fdCnfPath);
             submit = grunt.option('submit') || false;
             tmpDir = path.join((cnf.tmpPath || curDir), 'tmp');
@@ -241,6 +241,7 @@ module.exports = function(grunt) {
             jsCnf = getUserJS(fdCnf)
             // start build!
             _LOG('start build!');
+            _LOG(grunt.option);
             util.rmDir(tmpDir);
             fs.mkdirSync(tmpDir);
             util.build(function(buildOut, dirTree){
@@ -274,7 +275,7 @@ module.exports = function(grunt) {
                             });
                             Object.keys(submitResult).forEach(function(hash){
                                 var loopitem;
-                                if(submitResult.hasOwnProperty(hash)){
+                                if(submitResult.hasOwnProperty(hash) && submitResult[hash].ext === 'js'){
                                     loopitem = submitResult[hash];
                                     loopitem.modify ? tmp[loopitem.uid] = loopitem.publishLink :'';
                                     if(loopitem.concat){
@@ -304,7 +305,7 @@ module.exports = function(grunt) {
                             ]));
                             util.writeFile(cnfPath, 'exports=module.exports='+JSON.stringify(cnf,null,2))
                             util.rmDir(tmpDir);
-                            util.makeProductCnf(newFdCnf, path.join(submitDir, 'js', 'config.js'));
+                            util.makeProductCnf(newFdCnf, path.join(submitDir, 'js', 'config.js'), null, true);
                             done();
                         }, tmpDir, submitDir, buildOut, lastBuild, cnf.publishPrev, cnf.svnRoot, dirTree, buildBlackList, cnf.originInclude, forceRefresh, jsCnf); //callback, workDir, onlineDir, buildIn, lastbuild, publishPrev, svnRoot
                     }

@@ -7,6 +7,7 @@
 		,minifyCss = new (require('clean-css'))()
 		,exec = require('child_process').exec
 		,crypto = require('crypto')
+		,hashId = require('hashids')
 		,debug = true;
 
 	function log(msg, model){
@@ -97,30 +98,33 @@
 	}
 
 	function minify(callback, file, filetype, extra){
-		var ret = null;
-		log('minify:'+file)
-		if(file && fileType(file) === 'file'){
-			filetype = filetype || (file.match(/.*\.(\S+)$/) && RegExp.$1);
-			switch(filetype){
-				case 'js':
-					ret = uglifyjs.minify(file).code;
-				break;
-				case 'css':
-					ret = minifyCss.minify(readFile(file)).styles;
-				break;
-				// case 'png':
-				// 	if(!extra){
-				// 		console.error('minify '+type+' need "extra" params!');
-				// 	}else{
-				// 		return shell(callback, 'pngcrush -q -rem alla -brute -reduce ' + file + ' ' + extra.destPath);
-				// 	}
-				// break;
-				default:
-					console.error('can not support '+ filetype);
-				break;
-			}
-			type(callback) === 'function' ? callback(ret) : '';
+		var ret = null, isContent = false;
+		//log('minify:'+file)
+		//if(file && fileType(file) === 'file'){
+		isContent =  file && file.length > 100;
+		filetype = filetype || (file.match(/.*\.(\S+)$/) && RegExp.$1);
+		!isContent && fileType(file) === 'other' ? filetype='empty' : '';
+		switch(filetype){
+			case 'js':
+				if(file.length )
+				ret = (isContent ? uglifyjs.minify(file, {fromString: true}) : uglifyjs.minify(file)).code;
+			break;
+			case 'css':
+				ret = minifyCss.minify(isContent ? file : readFile(file)).styles;
+			break;
+			// case 'png':
+			// 	if(!extra){
+			// 		console.error('minify '+type+' need "extra" params!');
+			// 	}else{
+			// 		return shell(callback, 'pngcrush -q -rem alla -brute -reduce ' + file + ' ' + extra.destPath);
+			// 	}
+			// break;
+			default:
+				console.error('can not support '+ filetype);
+			break;
 		}
+		type(callback) === 'function' ? callback(ret) : '';
+		//}
 	}
 
 	function concatFiles(files, destPath){
@@ -359,6 +363,21 @@
 					buildIndex.cat['js'].push(tHash);
 				}
 			}
+			// combine css
+			tdestpath = path.join(workDir, 'css', 'total.css');
+			concatFiles(buildIndex.cat.css.map(function(hash){return buildIn[hash].file}), tdestpath);
+			tHash = md5(tdestpath);
+			buildIn[tHash] = {
+				file: tdestpath,
+				ext: 'css',
+				base: 'total',
+				dir: path.join(workDir, 'css'),
+				hash: tHash,
+				uid: 'css_total.css',
+				basename: 'total.css',
+				concat: true,
+			};
+			buildIndex.cat['css'].push(tHash);
 
 			// get minify file and wait cp file
 			minifyList.forEach(function(item){
@@ -449,7 +468,7 @@
 								file: infos.file,
 								submitPath: destPath,
 								ext: infos.ext,
-								base: infos.base + '.min',
+								base: infos.base,
 								hash: miniHash,
 								mini: true,
 								dir: path.dirname(destPath),
@@ -469,8 +488,8 @@
 			}, needMinify)
 		}
 	}
-	function getUnitCode(){
-
+	function genUnitName(loopItem){
+		return [loopItem.base, '_', (new hashId(loopItem.hash, 8)).encode(1), '.', loopItem.ext].join('');
 	}
 
 	function deployOnline(callback, workDir, onlineDir, buildIn, lastbuild, publishPrev, svnRoot, dirTree, ignores, originInclude, force, jsCnf){
@@ -500,7 +519,7 @@
 					if(!buildIndex.hasOwnProperty(loopItem.ext)){
 						buildIndex['other'].push(hash);
 						loopItem.modify = !lastbuild.hasOwnProperty(loopItem.uid) || lastbuild[loopItem.uid] !== hash;
-						destPath = loopItem.submitPath.replace(path.basename(loopItem.submitPath), loopItem.hash+'.'+loopItem.ext).replace(workDir, onlineDir);
+						destPath = loopItem.submitPath.replace(path.basename(loopItem.submitPath), genUnitName(loopItem)).replace(workDir, onlineDir);
 						if(loopItem.modify || force){
 							loopItem.modify = true;
 							fileCopy(loopItem.submitPath, destPath);
@@ -526,7 +545,7 @@
 					}
 					fileData = readFile(loopItem.submitPath).replace(cssRegexp, function(a,b){return (nameMatchs[b] && nameMatchs[b][0]) || b});
 					newHash = md5(fileData);
-					destPath = path.join(onlineDir, loopItem.ext, (loopItem.hadMini ? loopItem.base:newHash)+'.'+loopItem.ext);
+					destPath = path.join(onlineDir, loopItem.ext, (loopItem.hadMini ? path.basename(loopItem.submitPath):genUnitName(loopItem)));
 					loopItem.modify = !lastbuild.hasOwnProperty(loopItem.uid) || lastbuild[loopItem.uid] !== newHash;
 					if(loopItem.modify || force){
 						loopItem.modify = true;
@@ -543,17 +562,17 @@
 					if(!loopItem){
 						return;
 					}
-					fileData = readFile(loopItem.submitPath).replace(regexp, function(a,b){
-						var sep;
-						if(nameMatchs[b]){
-							sep = b.indexOf('"') !== -1 ? '"' : "'";
-							return sep + nameMatchs[b][1] + sep;
-						}
-						return b;
-					});
+					// fileData = readFile(loopItem.submitPath).replace(regexp, function(a,b){
+					// 	var sep;
+					// 	if(nameMatchs[b]){
+					// 		sep = b.indexOf('"') !== -1 ? '"' : "'";
+					// 		return sep + nameMatchs[b][1] + sep;
+					// 	}
+					// 	return b;
+					// });
 					//newHash = md5(fileData);
 					newHash = loopItem.hash;
-					destPath = path.join(onlineDir, loopItem.ext, (loopItem.hadMini ? loopItem.base:newHash)+'.'+loopItem.ext);
+					destPath = path.join(onlineDir, loopItem.ext, (loopItem.hadMini ? path.basename(loopItem.submitPath):genUnitName(loopItem)));
 					loopItem.modify = !lastbuild.hasOwnProperty(loopItem.uid) || lastbuild[loopItem.uid] !== newHash;
 					if(loopItem.modify || force){
 						loopItem.modify = true;
@@ -671,24 +690,33 @@
         });
 	}
 
-	function makeProductCnf(cnf, destPath, space){
+	function makeProductCnf(cnf, destPath, space, compress){
 		var ret = [];
 		space = space || 2;
 		if(type(cnf) === 'object'){
 			ret.push('(function(){');
 			ret.push('  var cnf = ');
-			ret.push(JSON.stringify(cnf, null, space));
+			ret.push(JSON.stringify(cnf, null, space)+';');
 			ret.push('if(this.window){')
 			ret.push('  window.scriptLoaderInit && window.scriptLoaderInit(cnf)');
 			ret.push('}else{');
 			ret.push('  exports = module.exports = cnf;');
 			ret.push('}')
 			ret.push('})();');
-			if(destPath){
+			if(compress){
+				minify(function(ret){
+					writeFile(destPath, ret);
+				}, ret.join(''), 'js');
+			}else if(destPath){
 				writeFile(destPath, ret.join('\n'));
 			}else{
 				return ret.join('');
 			}
+			// if(destPath){
+			// 	writeFile(destPath, ret.join('\n'));
+			// }else{
+			// 	return ret.join('');
+			// }
 		}
 	}
 
